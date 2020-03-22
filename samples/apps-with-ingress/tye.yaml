@@ -14,6 +14,8 @@ services:
       service: appA
     - path: /B
       service: appB
+    - host: example.com
+      service: appB
 - name: appA
   project: ApplicationA/ApplicationA.csproj
   replicas: 2

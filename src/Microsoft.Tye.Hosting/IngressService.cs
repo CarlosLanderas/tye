@@ -1,4 +1,8 @@
-﻿using System;
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
+
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -7,8 +11,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Proxy;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Matching;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Tye.Hosting.Model;
 
@@ -40,6 +47,10 @@ namespace Microsoft.Tye.Hosting
                 if (service.Description.RunInfo is IngressRunInfo runInfo)
                 {
                     var builder = new WebApplicationBuilder();
+
+                    builder.Services.AddSingleton<MatcherPolicy, IngressHostMatcherPolicy>();
+
+                    builder.Logging.SetMinimumLevel(LogLevel.Trace);
                     builder.Logging.AddProvider(new ServiceLoggerProvider(service.Logs));
 
                     var addresses = new List<string>();
@@ -87,8 +98,6 @@ namespace Microsoft.Tye.Hosting
 
                         _logger.LogInformation("Processing ingress rule: Path:{Path}, Host:{Host}, Service:{Service}", rule.Path, rule.Host, rule.Service);
 
-                        var path = rule.Path == null ? "{**path}" : rule.Path + "/{**path}";
-
                         var targetServiceDescription = target.Description;
 
                         var uris = new List<Uri>();
@@ -112,7 +121,7 @@ namespace Microsoft.Tye.Hosting
 
                         // The only load balancing strategy here is round robin
                         long count = 0;
-                        var conventions = ((IEndpointRouteBuilder)webApp).Map(path, context =>
+                        RequestDelegate del = context =>
                         {
                             var next = (int)(Interlocked.Increment(ref count) % uris.Count);
 
@@ -122,12 +131,25 @@ namespace Microsoft.Tye.Hosting
                             };
 
                             return context.ProxyRequest(invoker, uri.Uri);
-                        });
+                        };
+
+                        IEndpointConventionBuilder conventions = null!;
+
+                        if (rule.Path != null)
+                        {
+                            conventions = ((IEndpointRouteBuilder)webApp).Map(rule.Path.TrimEnd('/') + "/{**path}", del);
+                        }
+                        else
+                        {
+                            conventions = webApp.MapFallback(del);
+                        }
 
                         if (rule.Host != null)
                         {
-                            conventions.RequireHost(rule.Host);
+                            conventions.WithMetadata(new IngressHostMetadata(rule.Host));
                         }
+
+                        conventions.WithDisplayName(rule.Service);
                     }
                 }
             }
@@ -198,7 +220,7 @@ namespace Microsoft.Tye.Hosting
 
                 public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
                 {
-                    _logs.OnNext(formatter(state, exception));
+                    _logs.OnNext($"[{logLevel}]: {formatter(state, exception)}");
                 }
             }
         }

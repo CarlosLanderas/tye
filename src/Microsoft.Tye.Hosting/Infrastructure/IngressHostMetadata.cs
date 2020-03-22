@@ -7,13 +7,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Microsoft.Tye.Hosting.Model
+namespace Microsoft.AspNetCore.Routing.Matching
 {
-    public class IngressStatus : ReplicaStatus
+    internal class IngressHostMetadata
     {
-        public IngressStatus(Service service, string name) : base(service, name)
+        public IngressHostMetadata(params string[] hosts)
         {
+            Hosts = new List<string>(hosts).AsReadOnly();
         }
 
+        public IReadOnlyList<string> Hosts { get; }
     }
 }
