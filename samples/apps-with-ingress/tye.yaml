@@ -14,7 +14,9 @@ services:
       service: appA
     - path: /B
       service: appB
-    - host: example.com
+    - host: a.example.com
+      service: appA
+    - host: b.example.com
       service: appB
 - name: appA
   project: ApplicationA/ApplicationA.csproj

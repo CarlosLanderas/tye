@@ -135,6 +135,60 @@ namespace E2ETest
             }
         }
 
+        [Fact]
+        public async Task IngressRunTest()
+        {
+            var projectDirectory = new DirectoryInfo(Path.Combine(TestHelpers.GetSolutionRootDirectory("tye"), "samples", "apps-with-ingress"));
+            using var tempDirectory = TempDirectory.Create();
+            DirectoryCopy.Copy(projectDirectory.FullName, tempDirectory.DirectoryPath);
+
+            var projectFile = new FileInfo(Path.Combine(tempDirectory.DirectoryPath, "tye.yaml"));
+            using var host = new TyeHost(ConfigFactory.FromFile(projectFile).ToHostingApplication(), Array.Empty<string>())
+            {
+                Sink = sink,
+            };
+
+            await host.StartAsync();
+            try
+            {
+                var handler = new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (a, b, c, d) => true,
+                    AllowAutoRedirect = false
+                };
+
+                var client = new HttpClient(new RetryHandler(handler));
+
+                var serviceApi = new Uri(host.DashboardWebApplication!.Addresses.First());
+                var ingressService = await client.GetStringAsync($"{serviceApi}api/v1/services/ingress");
+
+                var service = JsonSerializer.Deserialize<V1Service>(ingressService, _options);
+                var binding = service.Description!.Bindings.Single();
+                var ingressUri = $"http://localhost:{binding.Port}";
+
+                var rawResponseA = await client.GetStringAsync(ingressUri + "/A");
+                var rawResponseB = await client.GetStringAsync(ingressUri + "/B");
+
+                Assert.Equal("Hello from Application A", rawResponseA);
+                Assert.Equal("Hello from Application B", rawResponseB);
+
+                var requestA = new HttpRequestMessage(HttpMethod.Get, ingressUri);
+                requestA.Headers.Host = "a.example.com";
+                var requestB = new HttpRequestMessage(HttpMethod.Get, ingressUri);
+                requestB.Headers.Host = "b.example.com";
+
+                var responseA = await client.SendAsync(requestA);
+                var responseB = await client.SendAsync(requestB);
+
+                Assert.Equal("Hello from Application A", await responseA.Content.ReadAsStringAsync());
+                Assert.Equal("Hello from Application B", await responseB.Content.ReadAsStringAsync());
+            }
+            finally
+            {
+                await host.StopAsync();
+            }
+        }
+
         [ConditionalFact]
         [SkipIfDockerNotRunning]
         public async Task FrontendBackendRunTestWithDocker()

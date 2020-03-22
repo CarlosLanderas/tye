@@ -50,7 +50,6 @@ namespace Microsoft.Tye.Hosting
 
                     builder.Services.AddSingleton<MatcherPolicy, IngressHostMatcherPolicy>();
 
-                    builder.Logging.SetMinimumLevel(LogLevel.Trace);
                     builder.Logging.AddProvider(new ServiceLoggerProvider(service.Logs));
 
                     var addresses = new List<string>();
