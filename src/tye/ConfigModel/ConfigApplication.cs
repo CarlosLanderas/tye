@@ -58,6 +58,17 @@ namespace Microsoft.Tye.ConfigModel
 
                     runInfo = projectInfo;
                 }
+                else if (service.Rules.Count > 0)
+                {
+                    var rules = new List<IngressRule>();
+
+                    foreach (var rule in service.Rules)
+                    {
+                        rules.Add(new IngressRule(rule.Host, rule.Path, rule.Service!));
+                    }
+
+                    runInfo = new IngressRunInfo(rules);
+                }
                 else
                 {
                     throw new InvalidOperationException($"Cannot figure out how to run service '{service.Name}'.");

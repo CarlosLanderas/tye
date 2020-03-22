@@ -250,6 +250,7 @@ namespace Microsoft.Tye.Hosting
             {
                 new EventPipeDiagnosticsRunner(logger, diagnosticsCollector),
                 new ProxyService(logger),
+                new IngressService(logger),
                 new DockerRunner(logger),
                 new ProcessRunner(logger, ProcessRunnerOptions.FromArgs(args)),
             };

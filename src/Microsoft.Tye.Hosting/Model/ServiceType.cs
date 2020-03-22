@@ -9,6 +9,7 @@ namespace Microsoft.Tye.Hosting.Model
         External,
         Project,
         Executable,
-        Container
+        Container,
+        Ingress
     }
 }
