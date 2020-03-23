@@ -38,6 +38,7 @@ namespace Microsoft.Tye.Hosting
                 AllowAutoRedirect = false,
                 AutomaticDecompression = DecompressionMethods.None,
                 UseProxy = false,
+                ConnectTimeout = TimeSpan.FromSeconds(10) // Give the services time to spin up
             });
 
             foreach (var service in application.Services.Values)
