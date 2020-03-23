@@ -155,9 +155,11 @@ namespace E2ETest
             };
 
             using var client = new HttpClient(new RetryHandler(handler));
+            
+            await host.StartAsync();
+            
             var serviceApi = new Uri(host.DashboardWebApplication!.Addresses.First());
 
-            await host.StartAsync();
             try
             {
                 var ingressService = await client.GetStringAsync($"{serviceApi}api/v1/services/ingress");
