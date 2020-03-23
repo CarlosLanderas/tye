@@ -6,7 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Reactive.Subjects;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
@@ -33,13 +35,12 @@ namespace Microsoft.Tye.Hosting
 
         public async Task StartAsync(Model.Application application)
         {
-            var invoker = new HttpMessageInvoker(new SocketsHttpHandler
+            var invoker = new HttpMessageInvoker(new ConnectionRetryHandler(new SocketsHttpHandler
             {
                 AllowAutoRedirect = false,
                 AutomaticDecompression = DecompressionMethods.None,
-                UseProxy = false,
-                ConnectTimeout = TimeSpan.FromSeconds(10) // Give the services time to spin up
-            });
+                UseProxy = false
+            }));
 
             foreach (var service in application.Services.Values)
             {
@@ -176,6 +177,59 @@ namespace Microsoft.Tye.Hosting
                 {
                     webApp.Dispose();
                 }
+            }
+        }
+
+        private class ConnectionRetryHandler : DelegatingHandler
+        {
+            private static readonly int MaxRetries = 3;
+            private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromMilliseconds(1000);
+
+            public ConnectionRetryHandler(HttpMessageHandler innerHandler)
+                : base(innerHandler)
+            {
+            }
+
+            protected override async Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken)
+            {
+                HttpResponseMessage? response = null;
+                var delay = InitialRetryDelay;
+                Exception? exception = null;
+
+                for (var i = 0; i < MaxRetries; i++)
+                {
+                    try
+                    {
+                        response = await base.SendAsync(request, cancellationToken);
+                    }
+                    catch (HttpRequestException ex) when (ex.InnerException is SocketException)
+                    {
+                        if (i == MaxRetries - 1)
+                        {
+                            throw;
+                        }
+
+                        exception = ex;
+                    }
+
+                    if (response != null &&
+                       (response.IsSuccessStatusCode || response.StatusCode != HttpStatusCode.ServiceUnavailable))
+                    {
+                        return response;
+                    }
+
+                    await Task.Delay(delay, cancellationToken);
+                    delay *= 2;
+                }
+
+                if (exception != null)
+                {
+                    ExceptionDispatchInfo.Throw(exception);
+                }
+
+                throw new TimeoutException();
             }
         }
 
