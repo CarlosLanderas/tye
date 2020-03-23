@@ -166,19 +166,19 @@ namespace E2ETest
                 var binding = service.Description!.Bindings.Single();
                 var ingressUri = $"http://localhost:{binding.Port}";
 
-                var rawResponseA = await client.GetStringAsync(ingressUri + "/A");
-                var rawResponseB = await client.GetStringAsync(ingressUri + "/B");
+                var responseA = await client.GetAsync(ingressUri + "/A");
+                var responseB = await client.GetAsync(ingressUri + "/B");
 
-                Assert.StartsWith("Hello from Application A", rawResponseA);
-                Assert.StartsWith("Hello from Application B", rawResponseB);
+                Assert.StartsWith("Hello from Application A", await responseA.Content.ReadAsStringAsync());
+                Assert.StartsWith("Hello from Application B", await responseB.Content.ReadAsStringAsync());
 
                 var requestA = new HttpRequestMessage(HttpMethod.Get, ingressUri);
                 requestA.Headers.Host = "a.example.com";
                 var requestB = new HttpRequestMessage(HttpMethod.Get, ingressUri);
                 requestB.Headers.Host = "b.example.com";
 
-                var responseA = await client.SendAsync(requestA);
-                var responseB = await client.SendAsync(requestB);
+                responseA = await client.SendAsync(requestA);
+                responseB = await client.SendAsync(requestB);
 
                 Assert.StartsWith("Hello from Application A", await responseA.Content.ReadAsStringAsync());
                 Assert.StartsWith("Hello from Application B", await responseB.Content.ReadAsStringAsync());
