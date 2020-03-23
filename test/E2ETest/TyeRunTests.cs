@@ -148,18 +148,18 @@ namespace E2ETest
                 Sink = sink,
             };
 
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (a, b, c, d) => true,
+                AllowAutoRedirect = false
+            };
+
+            using var client = new HttpClient(new RetryHandler(handler));
+            var serviceApi = new Uri(host.DashboardWebApplication!.Addresses.First());
+
             await host.StartAsync();
             try
             {
-                var handler = new HttpClientHandler
-                {
-                    ServerCertificateCustomValidationCallback = (a, b, c, d) => true,
-                    AllowAutoRedirect = false
-                };
-
-                var client = new HttpClient(new RetryHandler(handler));
-
-                var serviceApi = new Uri(host.DashboardWebApplication!.Addresses.First());
                 var ingressService = await client.GetStringAsync($"{serviceApi}api/v1/services/ingress");
 
                 var service = JsonSerializer.Deserialize<V1Service>(ingressService, _options);
@@ -185,6 +185,18 @@ namespace E2ETest
             }
             finally
             {
+                // If we failed, there's a good chance the service isn't running. Let's get the logs either way and put
+                // them in the output.
+                foreach (var s in host.Application.Services.Values)
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Get, new Uri(serviceApi, $"/api/v1/logs/{s.Description.Name}"));
+                    var response = await client.SendAsync(request);
+                    var text = await response.Content.ReadAsStringAsync();
+
+                    output.WriteLine($"Logs for service: {s.Description.Name}");
+                    output.WriteLine(text);
+                }
+
                 await host.StopAsync();
             }
         }
