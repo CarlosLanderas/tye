@@ -169,8 +169,8 @@ namespace E2ETest
                 var rawResponseA = await client.GetStringAsync(ingressUri + "/A");
                 var rawResponseB = await client.GetStringAsync(ingressUri + "/B");
 
-                Assert.Equal("Hello from Application A", rawResponseA);
-                Assert.Equal("Hello from Application B", rawResponseB);
+                Assert.StartsWith("Hello from Application A", rawResponseA);
+                Assert.StartsWith("Hello from Application B", rawResponseB);
 
                 var requestA = new HttpRequestMessage(HttpMethod.Get, ingressUri);
                 requestA.Headers.Host = "a.example.com";
@@ -180,8 +180,8 @@ namespace E2ETest
                 var responseA = await client.SendAsync(requestA);
                 var responseB = await client.SendAsync(requestB);
 
-                Assert.Equal("Hello from Application A", await responseA.Content.ReadAsStringAsync());
-                Assert.Equal("Hello from Application B", await responseB.Content.ReadAsStringAsync());
+                Assert.StartsWith("Hello from Application A", await responseA.Content.ReadAsStringAsync());
+                Assert.StartsWith("Hello from Application B", await responseB.Content.ReadAsStringAsync());
             }
             finally
             {

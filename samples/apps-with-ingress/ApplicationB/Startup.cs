@@ -32,7 +32,7 @@ namespace ApplicationB
             {
                 endpoints.MapGet("/", async context =>
                 {
-                    await context.Response.WriteAsync("Hello from Application B");
+                    await context.Response.WriteAsync("Hello from Application B " + Environment.GetEnvironmentVariable("APP_INSTANCE") ?? Environment.GetEnvironmentVariable("HOSTNAME"));
                 });
             });
         }
